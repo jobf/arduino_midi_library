@@ -789,37 +789,70 @@ bool MidiInterface<SerialPort, Settings>::parse()
             mPendingMessageExpectedLength = MidiMessage::sSysExMaxSize;
             mRunningStatus_RX = InvalidType;
             mMessage.sysexArray[0] = SystemExclusive;
-        }
 
-        if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
-        {
-            // Reception complete
-            mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
-            mMessage.channel = getChannelFromStatusByte(mPendingMessage[0]);
-            mMessage.data1   = mPendingMessage[1];
-            mMessage.data2   = 0; // Completed new message has 1 data byte
+            if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
+            {
+                // Reception complete
+                mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
+                mMessage.channel = getChannelFromStatusByte(mPendingMessage[0]);
+                mMessage.data1   = mPendingMessage[1];
+                mMessage.data2   = 0; // Completed new message has 1 data byte
 
-            mPendingMessageIndex = 0;
-            mPendingMessageExpectedLength = 0;
-            mMessage.valid = true;
-            return true;
+                mPendingMessageIndex = 0;
+                mPendingMessageExpectedLength = 0;
+                mMessage.valid = true;
+                return true;
+            }
+            else
+            {
+                // Waiting for more data
+                mPendingMessageIndex++;
+            }
+
+            if (Settings::Use1ByteParsing)
+            {
+                // Message is not complete.
+                return false;
+            }
+            else
+            {
+                // Call the parser recursively
+                // to parse the rest of the message.
+                return parse();
+            }
         }
         else
         {
-            // Waiting for more data
-            mPendingMessageIndex++;
-        }
+            if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
+            {
+                // Reception complete
+                mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
+                mMessage.channel = getChannelFromStatusByte(mPendingMessage[0]);
+                mMessage.data1   = mPendingMessage[1];
+                mMessage.data2   = 0; // Completed new message has 1 data byte
 
-        if (Settings::Use1ByteParsing)
-        {
-            // Message is not complete.
-            return false;
-        }
-        else
-        {
-            // Call the parser recursively
-            // to parse the rest of the message.
-            return parse();
+                mPendingMessageIndex = 0;
+                mPendingMessageExpectedLength = 0;
+                mMessage.valid = true;
+                return true;
+            }
+            else
+            {
+                // Waiting for more data
+                mPendingMessageIndex++;
+            }
+
+            if (Settings::Use1ByteParsing)
+            {
+                // Message is not complete.
+                return false;
+            }
+            else
+            {
+                // Call the parser recursively
+                // to parse the rest of the message.
+                return parse();
+            }
         }
     }
     else
