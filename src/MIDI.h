@@ -239,6 +239,7 @@ private:
     unsigned        mCurrentRpnNumber;
     unsigned        mCurrentNrpnNumber;
     bool            mThruActivated  : 1;
+    bool            handlingSysex  : 1;
     Thru::Mode      mThruFilterMode : 7;
     MidiMessage     mMessage;
 

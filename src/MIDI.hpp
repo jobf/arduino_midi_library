@@ -108,6 +108,8 @@ void MidiInterface<SerialPort, Settings>::begin(Channel inChannel)
 
     mThruFilterMode = Thru::Full;
     mThruActivated  = true;
+
+    handlingSysex  = false;
 }
 
 // -----------------------------------------------------------------------------
@@ -770,11 +772,7 @@ bool MidiInterface<SerialPort, Settings>::parse()
                 break;
 
             case SystemExclusive:
-                // The message can be any length
-                // between 3 and MidiMessage::sSysExMaxSize bytes
-                mPendingMessageExpectedLength = MidiMessage::sSysExMaxSize;
-                mRunningStatus_RX = InvalidType;
-                mMessage.sysexArray[0] = SystemExclusive;
+                handlingSysex = true;
                 break;
 
             case InvalidType:
@@ -783,6 +781,14 @@ bool MidiInterface<SerialPort, Settings>::parse()
                 resetInput();
                 return false;
                 break;
+        }
+
+        if(handlingSysex){
+            // The message can be any length
+            // between 3 and MidiMessage::sSysExMaxSize bytes
+            mPendingMessageExpectedLength = MidiMessage::sSysExMaxSize;
+            mRunningStatus_RX = InvalidType;
+            mMessage.sysexArray[0] = SystemExclusive;
         }
 
         if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
