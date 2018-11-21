@@ -710,6 +710,20 @@ void MidiInterface<SerialPort, Settings>::completeMessage(){
     mMessage.valid = true;
 }
 
+template<class SerialPort, class Settings>
+void MidiInterface<SerialPort, Settings>::completeOneByteMessage(){
+    mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
+    mMessage.channel = 0;
+    mMessage.data1   = 0;
+    mMessage.data2   = 0;
+    mMessage.valid   = true;
+
+    // Do not reset all input attributes, Running Status must remain unchanged.
+    // We still need to reset these
+    mPendingMessageIndex = 0;
+    mPendingMessageExpectedLength = 0;
+}
+
 // Private method: MIDI parser
 template<class SerialPort, class Settings>
 bool MidiInterface<SerialPort, Settings>::parse()
@@ -756,18 +770,7 @@ bool MidiInterface<SerialPort, Settings>::parse()
             case ActiveSensing:
             case SystemReset:
             case TuneRequest:
-                // Handle the message type directly here.
-                mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
-                mMessage.channel = 0;
-                mMessage.data1   = 0;
-                mMessage.data2   = 0;
-                mMessage.valid   = true;
-
-                // Do not reset all input attributes, Running Status must remain unchanged.
-                // We still need to reset these
-                mPendingMessageIndex = 0;
-                mPendingMessageExpectedLength = 0;
-
+                completeOneByteMessage();
                 return true;
                 break;
 

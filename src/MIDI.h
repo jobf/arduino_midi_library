@@ -224,6 +224,7 @@ private:
     inline void resetInput();
     bool startNewMessage(byte extracted);
     void completeMessage();
+    void completeOneByteMessage();
 
 private:
     typedef Message<Settings::SysExMaxSize> MidiMessage;
