@@ -673,6 +673,43 @@ inline bool MidiInterface<SerialPort, Settings>::read(Channel inChannel)
 
 // -----------------------------------------------------------------------------
 
+template<class SerialPort, class Settings>
+bool MidiInterface<SerialPort, Settings>::startNewMessage(byte extracted){
+    // Start a new pending message
+        mPendingMessage[0] = extracted;
+
+        // Check for running status first
+        if (isChannelMessage(getTypeFromStatusByte(mRunningStatus_RX)))
+        {
+            // Only these types allow Running Status
+
+            // If the status byte is not received, prepend it
+            // to the pending message
+            if (extracted < 0x80)
+            {
+                mPendingMessage[0]   = mRunningStatus_RX;
+                mPendingMessage[1]   = extracted;
+                mPendingMessageIndex = 1;
+            }
+            // Else: well, we received another status byte,
+            // so the running status does not apply here.
+            // It will be updated upon completion of this message.
+        }   
+}
+
+
+template<class SerialPort, class Settings>
+void MidiInterface<SerialPort, Settings>::completeMessage(){
+    mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
+    mMessage.channel = getChannelFromStatusByte(mPendingMessage[0]);
+    mMessage.data1   = mPendingMessage[1];
+    mMessage.data2   = 0; // Completed new message has 1 data byte
+
+    mPendingMessageIndex = 0;
+    mPendingMessageExpectedLength = 0;
+    mMessage.valid = true;
+}
+
 // Private method: MIDI parser
 template<class SerialPort, class Settings>
 bool MidiInterface<SerialPort, Settings>::parse()
@@ -707,26 +744,7 @@ bool MidiInterface<SerialPort, Settings>::parse()
 
     if (mPendingMessageIndex == 0)
     {
-        // Start a new pending message
-        mPendingMessage[0] = extracted;
-
-        // Check for running status first
-        if (isChannelMessage(getTypeFromStatusByte(mRunningStatus_RX)))
-        {
-            // Only these types allow Running Status
-
-            // If the status byte is not received, prepend it
-            // to the pending message
-            if (extracted < 0x80)
-            {
-                mPendingMessage[0]   = mRunningStatus_RX;
-                mPendingMessage[1]   = extracted;
-                mPendingMessageIndex = 1;
-            }
-            // Else: well, we received another status byte,
-            // so the running status does not apply here.
-            // It will be updated upon completion of this message.
-        }
+        startNewMessage(extracted);
 
         switch (getTypeFromStatusByte(mPendingMessage[0]))
         {
@@ -773,6 +791,11 @@ bool MidiInterface<SerialPort, Settings>::parse()
 
             case SystemExclusive:
                 handlingSysex = true;
+                // The message can be any length
+                // between 3 and MidiMessage::sSysExMaxSize bytes
+                mPendingMessageExpectedLength = MidiMessage::sSysExMaxSize;
+                mRunningStatus_RX = InvalidType;
+                mMessage.sysexArray[0] = SystemExclusive;
                 break;
 
             case InvalidType:
@@ -783,76 +806,28 @@ bool MidiInterface<SerialPort, Settings>::parse()
                 break;
         }
 
-        if(handlingSysex){
-            // The message can be any length
-            // between 3 and MidiMessage::sSysExMaxSize bytes
-            mPendingMessageExpectedLength = MidiMessage::sSysExMaxSize;
-            mRunningStatus_RX = InvalidType;
-            mMessage.sysexArray[0] = SystemExclusive;
-
-            if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
-            {
-                // Reception complete
-                mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
-                mMessage.channel = getChannelFromStatusByte(mPendingMessage[0]);
-                mMessage.data1   = mPendingMessage[1];
-                mMessage.data2   = 0; // Completed new message has 1 data byte
-
-                mPendingMessageIndex = 0;
-                mPendingMessageExpectedLength = 0;
-                mMessage.valid = true;
-                return true;
-            }
-            else
-            {
-                // Waiting for more data
-                mPendingMessageIndex++;
-            }
-
-            if (Settings::Use1ByteParsing)
-            {
-                // Message is not complete.
-                return false;
-            }
-            else
-            {
-                // Call the parser recursively
-                // to parse the rest of the message.
-                return parse();
-            }
+        if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
+        {
+            // Reception complete
+            completeMessage();
+            return true;
         }
         else
         {
-            if (mPendingMessageIndex >= (mPendingMessageExpectedLength - 1))
-            {
-                // Reception complete
-                mMessage.type    = getTypeFromStatusByte(mPendingMessage[0]);
-                mMessage.channel = getChannelFromStatusByte(mPendingMessage[0]);
-                mMessage.data1   = mPendingMessage[1];
-                mMessage.data2   = 0; // Completed new message has 1 data byte
+            // Waiting for more data
+            mPendingMessageIndex++;
+        }
 
-                mPendingMessageIndex = 0;
-                mPendingMessageExpectedLength = 0;
-                mMessage.valid = true;
-                return true;
-            }
-            else
-            {
-                // Waiting for more data
-                mPendingMessageIndex++;
-            }
-
-            if (Settings::Use1ByteParsing)
-            {
-                // Message is not complete.
-                return false;
-            }
-            else
-            {
-                // Call the parser recursively
-                // to parse the rest of the message.
-                return parse();
-            }
+        if (Settings::Use1ByteParsing)
+        {
+            // Message is not complete.
+            return false;
+        }
+        else
+        {
+            // Call the parser recursively
+            // to parse the rest of the message.
+            return parse();
         }
     }
     else

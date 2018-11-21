@@ -222,6 +222,8 @@ private:
     inline void handleNullVelocityNoteOnAsNoteOff();
     inline bool inputFilter(Channel inChannel);
     inline void resetInput();
+    bool startNewMessage(byte extracted);
+    void completeMessage();
 
 private:
     typedef Message<Settings::SysExMaxSize> MidiMessage;
