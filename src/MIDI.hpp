@@ -726,8 +726,6 @@ void MidiInterface<SerialPort, Settings>::completeOneByteMessage(){
 
 template<class SerialPort, class Settings>
 void MidiInterface<SerialPort, Settings>::completeSysExMessage(){
-    // Store the last byte (EOX)
-    mMessage.sysexArray[mPendingMessageIndex++] = 0xf7;
     mMessage.type = SystemExclusive;
 
     // Get length
@@ -882,8 +880,10 @@ bool MidiInterface<SerialPort, Settings>::parse()
 
                     // End of Exclusive
                 case 0xf7:
-                    if (mMessage.sysexArray[0] == SystemExclusive)
+                    if (handlingSysex)
                     {
+                        // Store the last byte (EOX)
+                        mMessage.sysexArray[mPendingMessageIndex++] = 0xf7;
                         completeSysExMessage();
                         resetInput();
                         return true;
