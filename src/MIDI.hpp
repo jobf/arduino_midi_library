@@ -901,7 +901,7 @@ bool MidiInterface<SerialPort, Settings>::parse()
         }
 
         // Add extracted data byte to pending message
-        if (mPendingMessage[0] == SystemExclusive)
+        if (handlingSysex)
             mMessage.sysexArray[mPendingMessageIndex] = extracted;
         else
             mPendingMessage[mPendingMessageIndex] = extracted;
@@ -912,9 +912,10 @@ bool MidiInterface<SerialPort, Settings>::parse()
             // "FML" case: fall down here with an overflown SysEx..
             // This means we received the last possible data byte that can fit
             // the buffer. If this happens, try increasing MidiMessage::sSysExMaxSize.
-            if (mPendingMessage[0] == SystemExclusive)
+            if (handlingSysex)
             {
                 resetInput();
+                handlingSysex = false;
                 return false;
             }
 
