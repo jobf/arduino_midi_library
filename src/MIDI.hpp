@@ -774,6 +774,14 @@ bool MidiInterface<SerialPort, Settings>::parse()
 
         // if we have a 1 byte message return true, or error return false
         // otherwise keep run
+
+
+        // set sysex otherise it's going to be reported invalid
+        if(handlingSysex)
+        {
+            mPendingMessage[0] = SystemExclusive;
+        }
+
         switch (getTypeFromStatusByte(mPendingMessage[0]))
         {
             // 1 byte messages
@@ -807,12 +815,16 @@ bool MidiInterface<SerialPort, Settings>::parse()
                 break;
 
             case SystemExclusive:
-                handlingSysex = true;
                 // The message can be any length
                 // between 3 and MidiMessage::sSysExMaxSize bytes
                 mPendingMessageExpectedLength = MidiMessage::sSysExMaxSize;
                 mRunningStatus_RX = InvalidType;
-                mMessage.sysexArray[0] = SystemExclusive;
+                if(!handlingSysex)
+                {
+                    // only set this if we're not already handling sysex
+                    mMessage.sysexArray[0] = SystemExclusive;
+                }
+                handlingSysex = true;
                 break;
 
             case InvalidType:
@@ -917,6 +929,7 @@ bool MidiInterface<SerialPort, Settings>::parse()
                 if(Settings::SendPartialSysEx)
                 {
                     // send message back and reset index so we start filling the buffer again
+                    mMessage.sysexArray[mPendingMessageIndex++] = extracted;
                     completeSysExMessage();
                     mSystemExclusiveCallback(mMessage.sysexArray, mMessage.getSysExSize());
                     mPendingMessageIndex = 0;
