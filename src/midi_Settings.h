@@ -76,6 +76,13 @@ struct DefaultSettings
     to receive SysEx, or adjust accordingly.
     */
     static const unsigned SysExMaxSize = 128;
+
+
+    /*! Setting this to true will call mSystemExclusiveCallback when SysEx buffer
+    is full instead of aborting. The buffer is then emptied and transmission carries on
+    */
+    static const bool SendPartialSysEx = false;
+
 };
 
 END_MIDI_NAMESPACE

@@ -914,9 +914,20 @@ bool MidiInterface<SerialPort, Settings>::parse()
             // the buffer. If this happens, try increasing MidiMessage::sSysExMaxSize.
             if (handlingSysex)
             {
-                resetInput();
-                handlingSysex = false;
-                return false;
+                if(Settings::SendPartialSysEx)
+                {
+                    // send message back and reset index so we start filling the buffer again
+                    completeSysExMessage();
+                    mSystemExclusiveCallback(mMessage.sysexArray, mMessage.getSysExSize());
+                    mPendingMessageIndex = 0;
+                    return parse();
+                }
+                else
+                {
+                    resetInput();
+                    handlingSysex = false;
+                    return false;
+                }
             }
 
             mMessage.type = getTypeFromStatusByte(mPendingMessage[0]);
