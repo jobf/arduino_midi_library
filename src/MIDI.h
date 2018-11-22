@@ -225,6 +225,7 @@ private:
     bool startNewMessage(byte extracted);
     void completeMessage();
     void completeOneByteMessage();
+    void completeSysExMessage();
 
 private:
     typedef Message<Settings::SysExMaxSize> MidiMessage;

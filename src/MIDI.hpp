@@ -724,6 +724,19 @@ void MidiInterface<SerialPort, Settings>::completeOneByteMessage(){
     mPendingMessageExpectedLength = 0;
 }
 
+template<class SerialPort, class Settings>
+void MidiInterface<SerialPort, Settings>::completeSysExMessage(){
+    // Store the last byte (EOX)
+    mMessage.sysexArray[mPendingMessageIndex++] = 0xf7;
+    mMessage.type = SystemExclusive;
+
+    // Get length
+    mMessage.data1   = mPendingMessageIndex & 0xff; // LSB
+    mMessage.data2   = byte(mPendingMessageIndex >> 8);   // MSB
+    mMessage.channel = 0;
+    mMessage.valid   = true;
+}
+
 // Private method: MIDI parser
 template<class SerialPort, class Settings>
 bool MidiInterface<SerialPort, Settings>::parse()
@@ -756,10 +769,13 @@ bool MidiInterface<SerialPort, Settings>::parse()
         }
     }
 
+    // check if we've been reset, if so start new message
     if (mPendingMessageIndex == 0)
     {
         startNewMessage(extracted);
 
+        // if we have a 1 byte message return true, or error return false
+        // otherwise keep run
         switch (getTypeFromStatusByte(mPendingMessage[0]))
         {
             // 1 byte messages
@@ -833,9 +849,10 @@ bool MidiInterface<SerialPort, Settings>::parse()
             return parse();
         }
     }
-    else
+    else // otherwise we are processing the rest of the message
     {
         // First, test if this is a status byte
+        // sysex message ends in here if end byte is extracted
         if (extracted >= 0x80)
         {
             // Reception of status bytes in the middle of an uncompleted message
@@ -867,16 +884,7 @@ bool MidiInterface<SerialPort, Settings>::parse()
                 case 0xf7:
                     if (mMessage.sysexArray[0] == SystemExclusive)
                     {
-                        // Store the last byte (EOX)
-                        mMessage.sysexArray[mPendingMessageIndex++] = 0xf7;
-                        mMessage.type = SystemExclusive;
-
-                        // Get length
-                        mMessage.data1   = mPendingMessageIndex & 0xff; // LSB
-                        mMessage.data2   = byte(mPendingMessageIndex >> 8);   // MSB
-                        mMessage.channel = 0;
-                        mMessage.valid   = true;
-
+                        completeSysExMessage();
                         resetInput();
                         return true;
                     }
